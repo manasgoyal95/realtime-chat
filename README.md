@@ -1,8 +1,8 @@
 # Pulse — realtime chat
 
-A small chat app built as a take-home assignment. Open the page, pick a name,
-start talking. Messages appear live, you can see who's online, and you can see
-who's typing.
+A small chat app built as a take-home assignment. Open the page, start a new
+chat, share the link. Messages appear live, you can see who's online, and you
+can see who's typing.
 
 **Live demo:** https://pulse-chat-7puv.onrender.com
 
@@ -18,15 +18,18 @@ WebSockets · SQLite (pure-Go driver) · deployed as a single binary on Fly.io.
 
 ## Try it in 30 seconds
 
-1. Open the demo link.
-2. Pick a name.
-3. Open the same link in a second browser (or incognito tab) with a different
-   name — both sessions will see messages appear live, presence update, and
-   typing indicators.
-4. Refresh either tab — your history is still there.
-5. Put the server through reconnect: open dev tools → Network → offline, wait,
-   then come back online. The status pill flips from "Live" → "Reconnecting…"
-   → "Live" and any missed messages replay.
+1. Open the demo link. You'll see a landing page, not a chat feed.
+2. Click **Start a new chat** — the URL becomes `/r/<slug>` (e.g.
+   `/r/verdant-koala-241`). That slug *is* the conversation.
+3. Click **Copy link** in the header, paste it to a friend (or into a second
+   incognito tab). Pick different names. Both sessions see messages appear
+   live, presence update, and typing indicators.
+4. Open `/r/some-other-slug` in a third tab — different, fully scoped room.
+   Messages and presence don't leak between rooms.
+5. Refresh any tab — history reloads for that room.
+6. Put the server through reconnect: open dev tools → Network → offline, wait,
+   come back online. The status pill flips from "Live" → "Reconnecting…" →
+   "Live" and any missed messages in the current room replay.
 
 ---
 
@@ -42,7 +45,7 @@ the deliverable. Here's what I chose and why.
 | Transport | Raw WebSockets (gorilla/websocket) | Bidirectional and low-latency — the default for chat. SSE would have needed a separate POST channel for sends. |
 | Identity | Display name picked on first visit, persisted in `localStorage` | The assignment asks for "who sent which message," not full auth. A name is the minimum to satisfy the requirement without dragging accounts into scope. |
 | Persistence | Yes — SQLite, via the pure-Go `modernc.org/sqlite` driver | Messages surviving a refresh is what makes this feel like a product. Pure-Go means no CGO, so the whole thing cross-compiles into a static binary and drops into a distroless container. |
-| Rooms | One public room | Multi-room was tempting, but it splits focus away from the real-time UX polish that actually differentiates chat apps. I'd rather do one room well than two rooms shallowly. |
+| Rooms | **Per-URL rooms, no accounts, link-is-access** (Figma / Miro model) | Sharing a link is how you invite someone. No directory, no `POST /rooms`, no passcodes — the URL *is* the conversation. Scales from 1:1 to small groups without any UI surface area for "create / join / list" flows. |
 | Deployment | Single Go binary serves both `/ws` and the embedded React build (via `go:embed`) | One service to deploy, no CORS, no split-origin WebSocket pain. Same URL for everything. |
 | Hosting | Fly.io | Free tier, native WebSocket support, sub-minute deploys, and a persistent volume for the SQLite file. |
 
@@ -82,8 +85,9 @@ The rubric weights "reliability" explicitly, so these aren't a stretch goal:
 
 - **Auth / accounts** — out of scope. Names are enough for the assignment,
   and auth would dilute the real-time focus.
-- **Multiple rooms / DMs** — scope creep. Adding a room list and join/leave
-  UI doesn't demonstrate anything that one good room doesn't already.
+- **Room directory / join UI** — rooms are reached by URL only. Sharing a
+  link is the one action; there's no "browse rooms" screen, no passcodes, no
+  "create" button beyond the generate-a-slug shortcut.
 - **Emoji reactions / file uploads** — feature sprawl. I'd rather ship the
   real-time UX well.
 - **End-to-end tests** — a manual test plan (above) is enough for a
@@ -97,16 +101,16 @@ The rubric weights "reliability" explicitly, so these aren't a stretch goal:
 ┌────────────────────────────────┐        ┌──────────────────────────────┐
 │  Browser (React SPA)           │        │  Go server (single binary)   │
 │                                │        │                              │
-│  - App.tsx                     │◄──WS──►│  /ws        → Hub            │
-│  - useChatSocket (reconnect)   │        │  /api/*     → REST handlers  │
-│  - optimistic send + replay    │◄──GET──│  /          → embedded SPA   │
-└────────────────────────────────┘        │                              │
-                                          │  Hub ─┬─ clients (goroutines)│
-                                          │       ├─ broadcast fan-out   │
-                                          │       ├─ presence tracking   │
-                                          │       └─ typing timers       │
+│  /                             │◄──GET──│  /          → embedded SPA   │
+│  /r/:code  (ChatRoom)          │        │  /api/*     → REST handlers  │
+│  - useChatSocket (reconnect)   │◄──WS──►│  /ws?user=&room=             │
+│  - optimistic send + replay    │        │                              │
+└────────────────────────────────┘        │  Registry → *Hub per room    │
+                                          │     └── clients (goroutines) │
+                                          │         broadcast fan-out    │
+                                          │         presence / typing    │
                                           │                              │
-                                          │  store (SQLite)              │
+                                          │  store (SQLite, room-scoped) │
                                           └──────────────────────────────┘
 ```
 
@@ -115,12 +119,15 @@ The rubric weights "reliability" explicitly, so these aren't a stretch goal:
 - `cmd/server/main.go` — wiring, graceful shutdown.
 - `internal/hub/` — the classic gorilla hub pattern: one goroutine per
   connection for reads and writes, a central hub goroutine that owns client
-  membership and broadcasts.
-- `internal/store/` — SQLite-backed message store (`Insert`, `Recent`,
-  `Since`).
-- `internal/api/` — HTTP handlers (`/healthz`, `/api/messages`, `/ws`).
+  membership and broadcasts. **One hub per room**, allocated lazily by
+  `Registry` on first connect.
+- `internal/store/` — SQLite-backed message store, all queries scoped by
+  `room_id` (`Insert`, `Recent`, `Since`).
+- `internal/api/` — HTTP handlers (`/healthz`, `/api/messages?room=`,
+  `/ws?user=&room=`). Room codes validated by `sanitizeRoom`
+  (`^[a-z0-9][a-z0-9-]{2,39}$`).
 - `internal/spa/` — `go:embed` wrapper around the Vite build, with SPA
-  fallback routing for non-asset paths.
+  fallback routing for non-asset paths (so `/r/anything` serves the app).
 
 ### WebSocket protocol
 
@@ -213,11 +220,14 @@ fly deploy
 
 - Read receipts (which users have seen each message). Model's clear: track
   per-user `last_read_id` and broadcast on change. Just more UI work.
-- Multiple rooms, with a lightweight directory on the left. The Hub already
-  supports this shape — split `clients map[*Client]struct{}` into
-  `rooms map[string]map[*Client]struct{}` and route broadcasts by room.
+- Optional room passcodes — small `?key=` added to the invite link, hashed
+  server-side, checked on WS upgrade. Keeps the "link-is-access" model but
+  adds a second factor for sensitive rooms.
+- Ephemeral-invite links (expire after N hours or first N joins).
 - A "load older messages" button using the same `/api/messages?before=` REST
   endpoint shape.
+- Registry eviction: close hubs that have been empty for 10+ minutes so idle
+  rooms don't hold goroutines forever.
 - Migrate from raw SQLite to Postgres + LISTEN/NOTIFY if I wanted to scale
   across multiple server instances — the hub fan-out becomes a DB subscription
   and the WebSocket layer stays mostly the same.

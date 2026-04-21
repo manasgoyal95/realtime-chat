@@ -34,13 +34,12 @@ func main() {
 	}
 	defer s.Close()
 
-	h := hub.New(s)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go h.Run(ctx)
+	registry := hub.NewRegistry(ctx, s)
 
 	mux := http.NewServeMux()
-	apiSrv := api.New(h, s)
+	apiSrv := api.New(registry, s)
 	apiSrv.Routes(mux)
 
 	if handler, ok := spa.Handler(); ok {

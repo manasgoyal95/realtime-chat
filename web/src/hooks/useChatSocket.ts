@@ -5,10 +5,11 @@ export type ConnectionStatus = "connecting" | "open" | "reconnecting" | "closed"
 
 export function useChatSocket(opts: {
   user: string | null;
+  room: string | null;
   onEvent: (ev: ServerEvent) => void;
   onReconnect?: () => void;
 }) {
-  const { user, onEvent, onReconnect } = opts;
+  const { user, room, onEvent, onReconnect } = opts;
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(250);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -26,9 +27,9 @@ export function useChatSocket(opts: {
   }, [onReconnect]);
 
   const connect = useCallback(() => {
-    if (!user) return;
+    if (!user || !room) return;
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${window.location.host}/ws?user=${encodeURIComponent(user)}`;
+    const url = `${proto}//${window.location.host}/ws?user=${encodeURIComponent(user)}&room=${encodeURIComponent(room)}`;
     setStatus(hasConnectedOnceRef.current ? "reconnecting" : "connecting");
     const ws = new WebSocket(url);
     wsRef.current = ws;
@@ -66,11 +67,12 @@ export function useChatSocket(opts: {
         /* ignore */
       }
     };
-  }, [user]);
+  }, [user, room]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !room) return;
     shouldReconnectRef.current = true;
+    hasConnectedOnceRef.current = false; // reset so room switches show "connecting" not "reconnecting"
     connect();
     return () => {
       shouldReconnectRef.current = false;
@@ -78,7 +80,7 @@ export function useChatSocket(opts: {
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [user, connect]);
+  }, [user, room, connect]);
 
   const send = useCallback((payload: SendPayload) => {
     const ws = wsRef.current;

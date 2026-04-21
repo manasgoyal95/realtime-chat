@@ -24,7 +24,8 @@ type Event struct {
 }
 
 type Hub struct {
-	store *store.Store
+	store  *store.Store
+	roomID string
 
 	register   chan *Client
 	unregister chan *Client
@@ -42,9 +43,10 @@ type incomingMsg struct {
 	cid    string
 }
 
-func New(s *store.Store) *Hub {
+func New(s *store.Store, roomID string) *Hub {
 	return &Hub{
 		store:      s,
+		roomID:     roomID,
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		incoming:   make(chan incomingMsg, 64),
@@ -52,6 +54,9 @@ func New(s *store.Store) *Hub {
 		typing:     make(map[string]*time.Timer),
 	}
 }
+
+// RoomID returns the room this hub serves.
+func (h *Hub) RoomID() string { return h.roomID }
 
 func (h *Hub) Run(ctx context.Context) {
 	for {
@@ -100,7 +105,7 @@ func (h *Hub) handleIncoming(ctx context.Context, m incomingMsg) {
 		if m.body == "" {
 			return
 		}
-		saved, err := h.store.Insert(ctx, m.client.user, m.body)
+		saved, err := h.store.Insert(ctx, h.roomID, m.client.user, m.body)
 		if err != nil {
 			log.Printf("store insert: %v", err)
 			return

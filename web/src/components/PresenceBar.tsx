@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ConnectionStatus } from "../hooks/useChatSocket";
 
 const colorForName = (name: string) => {
@@ -27,26 +28,57 @@ function StatusDot({ status }: { status: ConnectionStatus }) {
   );
 }
 
+function CopyInviteButton() {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard denied — ignore */
+    }
+  };
+  return (
+    <button
+      onClick={copy}
+      title="Copy invite link"
+      className="text-xs font-medium rounded-md bg-ink-700 hover:bg-ink-600 text-ink-100 px-2.5 py-1 transition"
+    >
+      {copied ? "Copied!" : "Copy link"}
+    </button>
+  );
+}
+
 export function PresenceBar(props: {
   online: string[];
   me: string;
   status: ConnectionStatus;
+  roomId: string;
+  onLeave: () => void;
 }) {
-  const { online, me, status } = props;
+  const { online, me, status, roomId, onLeave } = props;
   const others = online.filter((u) => u !== me);
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b border-ink-700 bg-ink-900/80 backdrop-blur sticky top-0 z-10">
-      <div className="flex items-center gap-3">
-        <div className="h-7 w-7 rounded-lg bg-indigo-500 grid place-items-center font-bold text-sm">
+    <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-ink-700 bg-ink-900/80 backdrop-blur sticky top-0 z-10">
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={onLeave}
+          title="Back to landing"
+          className="h-7 w-7 rounded-lg bg-indigo-500 grid place-items-center font-bold text-sm hover:bg-indigo-400 transition flex-shrink-0"
+        >
           P
-        </div>
-        <div className="leading-tight">
-          <div className="font-semibold">Pulse</div>
-          <div className="text-xs text-ink-400">Public room</div>
+        </button>
+        <div className="leading-tight min-w-0">
+          <div className="font-semibold truncate">Pulse</div>
+          <div className="text-xs text-ink-400 font-mono truncate">
+            {roomId}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <CopyInviteButton />
+        <div className="hidden sm:flex items-center gap-1.5">
           {online.slice(0, 5).map((u) => (
             <div
               key={u}
@@ -63,7 +95,7 @@ export function PresenceBar(props: {
             </div>
           )}
         </div>
-        <div className="hidden sm:block text-xs text-ink-300">
+        <div className="hidden md:block text-xs text-ink-300">
           {online.length} online
           {others.length > 0 && (
             <span className="text-ink-500">
