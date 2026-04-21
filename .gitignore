@@ -4,6 +4,8 @@
 .DS_Store
 web/node_modules/
 web/dist/
+web/tsconfig.tsbuildinfo
 internal/spa/dist/assets/
 internal/spa/dist/index.html
+internal/spa/dist/favicon.svg
 !internal/spa/dist/.gitkeep

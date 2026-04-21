@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/components/messageinput.tsx","./src/components/messagelist.tsx","./src/components/presencebar.tsx","./src/components/typingindicator.tsx","./src/components/usernamegate.tsx","./src/hooks/usechatsocket.ts","./src/lib/api.ts","./src/lib/types.ts"],"version":"5.9.3"}
