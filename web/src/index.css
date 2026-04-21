@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-900 text-ink-100 antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply bg-ink-700 rounded;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bubble-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.bubble-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
+}

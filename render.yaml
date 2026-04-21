@@ -1,0 +1,25 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Creates a free-tier web service that builds the Dockerfile in this repo.
+#
+# To deploy:
+#   1. Push this repo to GitHub.
+#   2. In the Render dashboard: New → Blueprint → point at the repo.
+#      (Or `render blueprint launch` via the Render CLI.)
+#   3. Render auto-builds the Dockerfile and serves the app on a public URL.
+#
+# Free-tier caveats (documented in README):
+#   - No persistent disk: SQLite lives in /tmp and is wiped on restart.
+#   - Service spins down after 15 min idle; first request after that cold-starts.
+services:
+  - type: web
+    name: pulse-chat
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: ADDR
+        value: ":10000"
+      - key: DB_PATH
+        value: "/tmp/chat.db"

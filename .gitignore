@@ -1,0 +1,9 @@
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+web/node_modules/
+web/dist/
+internal/spa/dist/assets/
+internal/spa/dist/index.html
+!internal/spa/dist/.gitkeep

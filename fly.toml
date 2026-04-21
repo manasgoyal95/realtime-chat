@@ -1,0 +1,37 @@
+# fly.toml — Fly.io deployment config for realtime-chat.
+# Run `fly launch --no-deploy` on first setup to let Fly replace `app` with your
+# chosen name and pick a region. Then `fly deploy`.
+
+app = "pulse-chat"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ADDR = ":8080"
+  DB_PATH = "/data/chat.db"
+
+[[mounts]]
+  source = "chat_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "5s"
+    method = "get"
+    path = "/healthz"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
