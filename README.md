@@ -4,7 +4,12 @@ A small chat app built as a take-home assignment. Open the page, pick a name,
 start talking. Messages appear live, you can see who's online, and you can see
 who's typing.
 
-**Live demo:** _(paste Fly.io URL after first deploy)_
+**Live demo:** https://pulse-chat-7puv.onrender.com
+
+> ⏱️ First request after ~15 min of inactivity takes ~30s to cold-start
+> (Render's free tier spins services down when idle). Subsequent requests
+> are instant. Messages persist during the session but are wiped when the
+> container restarts — see "Deploy" below for why and how I'd fix it in prod.
 
 **Stack:** Go 1.26 backend · React 18 + TypeScript + Tailwind frontend · raw
 WebSockets · SQLite (pure-Go driver) · deployed as a single binary on Fly.io.
